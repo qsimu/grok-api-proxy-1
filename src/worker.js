@@ -11,7 +11,18 @@ async function handleRequest(request) {
   const url = new URL(request.url);
   const path = url.pathname + url.search;
   const headers = new Headers(request.headers);
-
+  headers.delete('CF-Connecting-IP');
+  headers.delete('X-Forwarded-For');
+  headers.delete('X-Real-IP');
+  headers.delete('True-Client-IP');
+  headers.delete('x-vercel-deployment-url');
+  headers.delete('x-vercel-forwarded-for');
+  headers.delete('x-forwarded-host');
+  headers.delete('x-forwarded-port');
+  headers.delete('x-forwarded-proto');
+  headers.delete('x-vercel-id');
+  headers.delete('cf-connecting-ip');
+  headers.delete('x-real-ip');
   const authHeader = headers.get('Authorization');
   if (!authHeader) {
     return new Response('Missing Authorization header', { status: 401 });
@@ -41,17 +52,5 @@ function handleOptionsRequest() {
   headers.set('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
   headers.set('Access-Control-Allow-Headers', 'Content-Type, Authorization');
   headers.set('Access-Control-Max-Age', '86400');
-  headers.delete('CF-Connecting-IP');
-  headers.delete('X-Forwarded-For');
-  headers.delete('X-Real-IP');
-  headers.delete('True-Client-IP');
-  headers.delete('x-vercel-deployment-url');
-  headers.delete('x-vercel-forwarded-for');
-  headers.delete('x-forwarded-host');
-  headers.delete('x-forwarded-port');
-  headers.delete('x-forwarded-proto');
-  headers.delete('x-vercel-id');
-  headers.delete('cf-connecting-ip');
-  headers.delete('x-real-ip');
   return new Response(null, { headers });
 }

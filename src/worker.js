@@ -1,7 +1,14 @@
 addEventListener('fetch', event => {
   event.respondWith(handleRequest(event.request));
 });
-
+// 打印 headers 的辅助函数
+function headersToString(headerObj) {
+    const obj = {};
+    for (const [key, value] of headerObj.entries()) {
+      obj[key] = value;
+    }
+    return JSON.stringify(obj, null, 2);
+}
 async function handleRequest(request) {
   if (request.method === 'OPTIONS') {
     return handleOptionsRequest();

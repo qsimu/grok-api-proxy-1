@@ -24,7 +24,7 @@ async function handleRequest(request) {
   const headers = new Headers();
   
   // 复制必要的请求头
-  const necessaryHeaders = ['authorization', 'content-type', 'content-length'];
+  const necessaryHeaders = ['authorization', 'content-type', 'content-length', 'transfer-encoding', 'content-encoding'];
   for (const header of necessaryHeaders) {
     const value = request.headers.get(header);
     if (value) {
@@ -51,6 +51,12 @@ async function handleRequest(request) {
   const apiResponse = await fetch(apiRequest);
 
   const response = new Response(apiResponse.body, apiResponse);
+  // 复制流式传输相关的响应头
+  const streamHeaders = ['transfer-encoding', 'content-encoding', 'content-length'];
+  streamHeaders.forEach(header => {
+    const value = apiResponse.headers.get(header);
+    if (value) response.headers.set(header, value);
+  });
   response.headers.set('Access-Control-Allow-Origin', '*');
   response.headers.set('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
   response.headers.set('Access-Control-Allow-Headers', 'Content-Type, Authorization');

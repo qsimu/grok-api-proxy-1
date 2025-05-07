@@ -69,56 +69,33 @@ async function handleRequest(request) {
 
   const apiUrl = `https://api.x.ai${path}`;
 
-  // 创建新的请求对象
-  let apiRequest = new Request(apiUrl, {
-    method: method,
-    headers: headers,
-    body: method !== 'GET' && method !== 'HEAD' ? await request.blob() : null,
-    // 禁用WebRTC，防止IP泄露
-    cf: {
-      resolveOverride: 'api.x.ai',
-      cacheEverything: false
-    }
-  });
+  // 克隆原始请求体以供重试使用
+  let requestBody = null;
+  if (method !== 'GET' && method !== 'HEAD') {
+    const clonedRequest = request.clone();
+    requestBody = await clonedRequest.blob();
+  }
 
   // 尝试多次请求，如果遇到限制则使用不同的随机IP重试
   let apiResponse;
   let retryCount = 0;
   const maxRetries = 3;
-  
+
+  // 创建请求对象的函数
+  const createApiRequest = () => {
+    return new Request(apiUrl, {
+      method: method,
+      headers: headers,
+      body: requestBody,
+      cf: {
+        resolveOverride: 'api.x.ai',
+        cacheEverything: false
+      }
+    });
+  };
+
   // 创建初始请求
-  apiRequest = new Request(apiUrl, {
-    method: method,
-    headers: headers,
-    body: method !== 'GET' && method !== 'HEAD' ? request.body : null,
-    cf: {
-      resolveOverride: 'api.x.ai',
-      cacheEverything: false
-    }
-  });
-  // 创建请求对象
-  if (method !== 'GET' && method !== 'HEAD') {
-    apiRequest = new Request(apiUrl, {
-      method: method,
-      headers: headers,
-      body: request.body,
-      cf: {
-        resolveOverride: 'api.x.ai',
-        cacheEverything: false
-      }
-    });
-  } else {
-    // 对于GET和HEAD请求，不需要请求体
-    apiRequest = new Request(apiUrl, {
-      method: method,
-      headers: headers,
-      body: null,
-      cf: {
-        resolveOverride: 'api.x.ai',
-        cacheEverything: false
-      }
-    });
-  }
+  let apiRequest = createApiRequest();
   
   while (retryCount < maxRetries) {
     try {
@@ -138,27 +115,7 @@ async function handleRequest(request) {
       headers.set('X-Real-IP', newRandomIP);
       
       // 更新请求对象
-      if (method !== 'GET' && method !== 'HEAD') {
-        apiRequest = new Request(apiUrl, {
-          method: method,
-          headers: headers,
-          body: request.body,
-          cf: {
-            resolveOverride: 'api.x.ai',
-            cacheEverything: false
-          }
-        });
-      } else {
-        apiRequest = new Request(apiUrl, {
-          method: method,
-          headers: headers,
-          body: null,
-          cf: {
-            resolveOverride: 'api.x.ai',
-            cacheEverything: false
-          }
-        });
-      }
+      apiRequest = createApiRequest();
       
     } catch (error) {
       console.error(`请求出错: ${error.message}`);

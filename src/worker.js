@@ -2,15 +2,6 @@ addEventListener('fetch', event => {
   event.respondWith(handleRequest(event.request));
 });
 
-// 打印 headers 的辅助函数
-function headersToString(headerObj) {
-  const obj = {};
-  for (const [key, value] of headerObj.entries()) {
-    obj[key] = value;
-  }
-  return JSON.stringify(obj, null, 2);
-}
-
 async function handleRequest(request) {
   if (request.method === 'OPTIONS') {
     return handleOptionsRequest();
@@ -19,22 +10,8 @@ async function handleRequest(request) {
   const method = request.method;
   const url = new URL(request.url);
   const path = url.pathname + url.search;
-  
-  // 创建新的请求头，只包含必要的信息
-  const headers = new Headers();
-  
-  // 复制必要的请求头
-  const necessaryHeaders = ['authorization', 'content-type', 'content-length'];
-  for (const header of necessaryHeaders) {
-    const value = request.headers.get(header);
-    if (value) {
-      headers.set(header, value);
-    }
-  }
-  
-  console.log(`Request headers1: ${headersToString(request.headers)}`);
-  console.log(`Request headers2: ${headersToString(headers)}`);
-  
+  const headers = new Headers(request.headers);
+
   const authHeader = headers.get('Authorization');
   if (!authHeader) {
     return new Response('Missing Authorization header', { status: 401 });

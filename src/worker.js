@@ -24,7 +24,7 @@ async function handleRequest(request) {
   const headers = new Headers();
   
   // 复制必要的请求头
-  const necessaryHeaders = ['authorization', 'content-type', 'content-length', 'transfer-encoding', 'content-encoding'];
+  const necessaryHeaders = ['authorization', 'content-type', 'content-length', 'transfer-encoding', 'content-encoding', 'accept'];
   for (const header of necessaryHeaders) {
     const value = request.headers.get(header);
     if (value) {
@@ -60,6 +60,8 @@ async function handleRequest(request) {
   response.headers.set('Access-Control-Allow-Origin', '*');
   response.headers.set('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
   response.headers.set('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  response.headers.set('Cache-Control', 'no-cache');
+  response.headers.set('Connection', 'keep-alive');
 
   return response;
 }

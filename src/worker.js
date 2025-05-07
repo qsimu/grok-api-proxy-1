@@ -51,7 +51,7 @@ function handleOptionsRequest() {
   headers.delete('x-forwarded-port');
   headers.delete('x-forwarded-proto');
   headers.delete('x-vercel-id');
-  headers.delete('origin');
-  headers.delete('baggage');
+  headers.delete('cf-connecting-ip');
+  headers.delete('x-real-ip');
   return new Response(null, { headers });
 }

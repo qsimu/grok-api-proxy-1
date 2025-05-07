@@ -30,6 +30,11 @@ async function handleRequest(request) {
   if (request.method === 'OPTIONS') {
     return handleOptionsRequest();
   }
+  
+  // 检测并阻止WebRTC泄露
+  const webrtcHeaders = new Headers();
+  webrtcHeaders.set('Content-Security-Policy', "require-trusted-types-for 'script'; default-src 'none'");
+  webrtcHeaders.set('Permissions-Policy', 'microphone=(), camera=(), geolocation=()');
 
   const method = request.method;
   const url = new URL(request.url);
@@ -71,6 +76,26 @@ async function handleRequest(request) {
   headers.set('Sec-Fetch-Mode', 'cors');
   headers.set('Sec-Fetch-Site', 'same-origin');
   headers.set('User-Agent', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36');
+  
+  // 添加TLS指纹伪装
+  headers.set('Sec-Ch-Ua', '"Not_A Brand";v="8", "Chromium";v="120", "Google Chrome";v="120"');
+  headers.set('Sec-Ch-Ua-Mobile', '?0');
+  headers.set('Sec-Ch-Ua-Platform', '"Windows"');
+  
+  // 添加代理链路伪装
+  const proxyChain = [
+    `${getRandomIP()}:${Math.floor(Math.random() * 30000) + 20000}`,
+    `${getRandomIP()}:${Math.floor(Math.random() * 30000) + 20000}`,
+    `${getRandomIP()}:${Math.floor(Math.random() * 30000) + 20000}`
+  ];
+  headers.set('Via', proxyChain.map(proxy => `1.1 ${proxy}`).join(', '));
+  headers.set('X-Forwarded-Proto', 'https, http');
+  headers.set('X-Forwarded-Port', '443, 8080, 80');
+  
+  // 添加DNS请求伪装
+  headers.set('Accept-CH', 'Sec-CH-UA, Sec-CH-UA-Mobile, Sec-CH-UA-Platform');
+  headers.set('Alt-Used', 'api.x.ai');
+  headers.set('X-DNS-Prefetch-Control', 'off');
   
   // 移除可能泄露真实信息的头部
   const removeHeaders = [
@@ -182,6 +207,13 @@ async function handleRequest(request) {
   const necessaryResponseHeaders = [
     'content-type', 'content-length', 'date', 'cache-control', 'expires'
   ];
+  
+  // 添加安全响应头
+  responseHeaders.set('X-Content-Type-Options', 'nosniff');
+  responseHeaders.set('X-Frame-Options', 'DENY');
+  responseHeaders.set('X-XSS-Protection', '1; mode=block');
+  responseHeaders.set('Referrer-Policy', 'no-referrer');
+  responseHeaders.set('Feature-Policy', 'sync-xhr \'none\'; geolocation \'none\'; camera \'none\'; microphone \'none\'');
   
   for (const header of necessaryResponseHeaders) {
     const value = apiResponse.headers.get(header);

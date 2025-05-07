@@ -11,6 +11,7 @@ async function handleRequest(request) {
   const url = new URL(request.url);
   const path = url.pathname + url.search;
   const headers = new Headers(request.headers);
+  console.log(`Request headers1: ${headers}`);
   headers.delete('CF-Connecting-IP');
   headers.delete('X-Forwarded-For');
   headers.delete('X-Real-IP');
@@ -23,6 +24,7 @@ async function handleRequest(request) {
   headers.delete('x-vercel-id');
   headers.delete('cf-connecting-ip');
   headers.delete('x-real-ip');
+  console.log(`Request headers2: ${headers}`);
   const authHeader = headers.get('Authorization');
   if (!authHeader) {
     return new Response('Missing Authorization header', { status: 401 });

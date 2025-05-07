@@ -15,7 +15,7 @@ function getRandomIP() {
   // 避开保留IP范围
   const segments = [];
   // 第一段避开保留IP范围
-  const firstSegment = [109, 153];
+  const firstSegment = [53, 153];
   segments.push(firstSegment[Math.floor(Math.random() * firstSegment.length)]);
   
   // 其他三段可以是0-255的任意值
@@ -35,11 +35,11 @@ async function handleRequest(request) {
   const url = new URL(request.url);
   const path = url.pathname + url.search;
   
-  // 创建新的请求头，而不是修改原始请求头
+  // 创建新的请求头，完全隔离原始请求头
   const headers = new Headers();
   
-  // 只复制必要的请求头
-  const necessaryHeaders = ['accept', 'accept-encoding', 'authorization', 'content-type', 'content-length'];
+  // 只复制绝对必要的请求头
+  const necessaryHeaders = ['authorization', 'content-type', 'content-length'];
   for (const header of necessaryHeaders) {
     const value = request.headers.get(header);
     if (value) {
@@ -47,16 +47,47 @@ async function handleRequest(request) {
     }
   }
   
-  // 设置一个通用的 User-Agent 来避免指纹识别
-  headers.set('User-Agent', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36');
-  
-  // 设置随机IP作为X-Forwarded-For，可能有助于绕过IP限制
+  // 设置随机IP
   const randomIP = getRandomIP();
-  headers.set('X-Forwarded-For', randomIP);
-  headers.set('X-Real-IP', randomIP);
   
-  // 设置host为目标域名，避免通过host头识别代理
+  // 设置代理相关头部，模拟多层代理
+  headers.set('X-Forwarded-For', `${randomIP}, 10.0.0.1`);
+  headers.set('X-Real-IP', randomIP);
+  headers.set('Via', '1.1 varnish, 1.1 squid');
+  headers.set('Forwarded', `for=${randomIP};proto=https`);
+  
+  // 设置通用请求头
+  headers.set('Accept', '*/*');
+  headers.set('Accept-Encoding', 'gzip, deflate, br');
+  headers.set('Accept-Language', 'en-US,en;q=0.9');
+  headers.set('Cache-Control', 'no-cache');
+  headers.set('Connection', 'keep-alive');
+  headers.set('DNT', '1');
   headers.set('Host', 'api.x.ai');
+  headers.set('Origin', 'https://api.x.ai');
+  headers.set('Pragma', 'no-cache');
+  headers.set('Referer', 'https://api.x.ai/');
+  headers.set('Sec-Fetch-Dest', 'empty');
+  headers.set('Sec-Fetch-Mode', 'cors');
+  headers.set('Sec-Fetch-Site', 'same-origin');
+  headers.set('User-Agent', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36');
+  
+  // 移除可能泄露真实信息的头部
+  const removeHeaders = [
+    'cf-connecting-ip',
+    'true-client-ip',
+    'fastly-client-ip',
+    'x-cluster-client-ip',
+    'x-forwarded',
+    'forwarded-for',
+    'x-coming-from',
+    'coming-from',
+    'client-ip'
+  ];
+  
+  removeHeaders.forEach(header => {
+    headers.delete(header);
+  });
   
   // 移除可能会泄露真实IP的请求头
   console.log(`Request headers1: ${headersToString(request.headers)}`);
@@ -79,10 +110,24 @@ async function handleRequest(request) {
   // 尝试多次请求，如果遇到限制则使用不同的随机IP重试
   let apiResponse;
   let retryCount = 0;
-  const maxRetries = 3;
+  const maxRetries = 5;
 
   // 创建请求对象的函数
-  const createApiRequest = () => {
+  const createApiRequest = (randomIP) => {
+    // 更新代理相关头部
+    headers.set('X-Forwarded-For', `${randomIP}, 10.0.0.1`);
+    headers.set('X-Real-IP', randomIP);
+    headers.set('Via', `1.1 varnish-v${Math.floor(Math.random() * 5) + 1}, 1.1 squid-v${Math.floor(Math.random() * 3) + 1}`);
+    headers.set('Forwarded', `for=${randomIP};proto=https`);
+    
+    // 随机化一些请求头
+    headers.set('Accept-Language', ['en-US,en;q=0.9', 'en-GB,en;q=0.8', 'en-CA,en;q=0.7'][Math.floor(Math.random() * 3)]);
+    headers.set('User-Agent', [
+      'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+      'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+      'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Edge/120.0.0.0 Safari/537.36'
+    ][Math.floor(Math.random() * 3)]);
+
     return new Request(apiUrl, {
       method: method,
       headers: headers,
@@ -95,7 +140,7 @@ async function handleRequest(request) {
   };
 
   // 创建初始请求
-  let apiRequest = createApiRequest();
+  let apiRequest = createApiRequest(getRandomIP());
   
   while (retryCount < maxRetries) {
     try {
@@ -107,15 +152,10 @@ async function handleRequest(request) {
       }
       
       // 如果是IP限制错误，则重试
-      console.log(`请求被限制，状态码: ${apiResponse.status}，尝试重试...`);
+      console.log(`请求被限制，状态码: ${apiResponse.status}，第${retryCount + 1}次重试...`);
       
-      // 更新随机IP并重试
-      const newRandomIP = getRandomIP();
-      headers.set('X-Forwarded-For', newRandomIP);
-      headers.set('X-Real-IP', newRandomIP);
-      
-      // 更新请求对象
-      apiRequest = createApiRequest();
+      // 生成新的随机IP并更新请求
+      apiRequest = createApiRequest(getRandomIP());
       
     } catch (error) {
       console.error(`请求出错: ${error.message}`);
@@ -123,9 +163,10 @@ async function handleRequest(request) {
     
     retryCount++;
     
-    // 如果不是最后一次重试，则等待一段时间再重试
+    // 如果不是最后一次重试，则等待随机时间再重试
     if (retryCount < maxRetries) {
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      const delay = Math.floor(Math.random() * 2000) + 1000; // 1-3秒随机延迟
+      await new Promise(resolve => setTimeout(resolve, delay));
     }
   }
   

@@ -61,26 +61,31 @@ async function handleRequest(request) {
   headers.set('Via', '1.1 varnish, 1.1 squid');
   headers.set('Forwarded', `for=${randomIP};proto=https`);
   
-  // 设置通用请求头
+  // 设置通用请求头，移除可能泄露来源的头部
   headers.set('Accept', '*/*');
   headers.set('Accept-Encoding', 'gzip, deflate, br');
-  headers.set('Accept-Language', 'en-US,en;q=0.9');
   headers.set('Cache-Control', 'no-cache');
   headers.set('Connection', 'keep-alive');
-  headers.set('DNT', '1');
   headers.set('Host', 'api.x.ai');
-  headers.set('Origin', 'https://api.x.ai');
   headers.set('Pragma', 'no-cache');
-  headers.set('Referer', 'https://api.x.ai/');
-  headers.set('Sec-Fetch-Dest', 'empty');
-  headers.set('Sec-Fetch-Mode', 'cors');
-  headers.set('Sec-Fetch-Site', 'same-origin');
-  headers.set('User-Agent', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36');
+  headers.set('User-Agent', [
+    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+    'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) Edge/120.0.0.0',
+    'Mozilla/5.0 (iPhone; CPU iPhone OS 17_1_2 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.1.2 Mobile/15E148 Safari/604.1'
+  ][Math.floor(Math.random() * 4)]);
   
-  // 添加TLS指纹伪装
-  headers.set('Sec-Ch-Ua', '"Not_A Brand";v="8", "Chromium";v="120", "Google Chrome";v="120"');
-  headers.set('Sec-Ch-Ua-Mobile', '?0');
-  headers.set('Sec-Ch-Ua-Platform', '"Windows"');
+  // 随机化TLS指纹
+  const browsers = [
+    { ua: '"Not_A Brand";v="8", "Chromium";v="120", "Google Chrome";v="120"', mobile: '?0', platform: '"Windows"' },
+    { ua: '"Microsoft Edge";v="120", "Not_A Brand";v="8", "Chromium";v="120"', mobile: '?0', platform: '"Windows"' },
+    { ua: '"Not_A Brand";v="99", "Google Chrome";v="120", "Chromium";v="120"', mobile: '?0', platform: '"Linux"' },
+    { ua: '"Apple WebKit";v="605", "Safari";v="17"', mobile: '?1', platform: '"iOS"' }
+  ];
+  const browser = browsers[Math.floor(Math.random() * browsers.length)];
+  headers.set('Sec-Ch-Ua', browser.ua);
+  headers.set('Sec-Ch-Ua-Mobile', browser.mobile);
+  headers.set('Sec-Ch-Ua-Platform', browser.platform);
   
   // 添加代理链路伪装
   const proxyChain = [
@@ -92,10 +97,22 @@ async function handleRequest(request) {
   headers.set('X-Forwarded-Proto', 'https, http');
   headers.set('X-Forwarded-Port', '443, 8080, 80');
   
-  // 添加DNS请求伪装
-  headers.set('Accept-CH', 'Sec-CH-UA, Sec-CH-UA-Mobile, Sec-CH-UA-Platform');
-  headers.set('Alt-Used', 'api.x.ai');
-  headers.set('X-DNS-Prefetch-Control', 'off');
+  // 添加更多代理特征
+  const proxyTypes = ['varnish', 'squid', 'nginx', 'haproxy', 'cloudfront'];
+  const proxyVersions = ['1.1', '1.0', '2.0'];
+  const proxyFeatures = [
+    'compression=gzip', 
+    'ssl=TLSv1.3',
+    'cache=MISS',
+    'server=cloudflare'
+  ];
+  
+  // 随机选择代理特征
+  const selectedProxy = proxyTypes[Math.floor(Math.random() * proxyTypes.length)];
+  const selectedVersion = proxyVersions[Math.floor(Math.random() * proxyVersions.length)];
+  const selectedFeature = proxyFeatures[Math.floor(Math.random() * proxyFeatures.length)];
+  
+  headers.set('Via', `${selectedVersion} ${selectedProxy} (${selectedFeature})`);
   
   // 移除可能泄露真实信息的头部
   const removeHeaders = [

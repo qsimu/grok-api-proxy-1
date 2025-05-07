@@ -67,6 +67,11 @@ async function handleRequest(request) {
   headers.set('Cache-Control', 'no-cache');
   headers.set('Connection', 'keep-alive');
   headers.set('Host', 'api.x.ai');
+  headers.set('Origin', 'https://api.x.ai');
+  headers.set('Referer', 'https://api.x.ai/');
+  headers.set('Sec-Fetch-Dest', 'empty');
+  headers.set('Sec-Fetch-Mode', 'cors');
+  headers.set('Sec-Fetch-Site', 'same-origin');
   headers.set('Pragma', 'no-cache');
   headers.set('User-Agent', [
     'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',

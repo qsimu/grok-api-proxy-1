@@ -86,22 +86,22 @@ async function handleRequest(request) {
   let retryCount = 0;
   const maxRetries = 3;
   
-  // 在开始处理之前克隆请求体
-  let requestBodyClones = [];
-  if (method !== 'GET' && method !== 'HEAD' && request.body) {
-    // 为每次可能的重试创建一个流副本
-    let currentStream = request.body;
-    for (let i = 0; i <= maxRetries; i++) {
-      const [stream1, stream2] = currentStream.tee();
-      requestBodyClones.push(stream1);
-      currentStream = stream2;
+  // 创建初始请求
+  apiRequest = new Request(apiUrl, {
+    method: method,
+    headers: headers,
+    body: method !== 'GET' && method !== 'HEAD' ? request.body : null,
+    cf: {
+      resolveOverride: 'api.x.ai',
+      cacheEverything: false
     }
-    
-    // 使用第一个流创建初始请求
+  });
+  // 创建请求对象
+  if (method !== 'GET' && method !== 'HEAD') {
     apiRequest = new Request(apiUrl, {
       method: method,
       headers: headers,
-      body: requestBodyClones[0],
+      body: request.body,
       cf: {
         resolveOverride: 'api.x.ai',
         cacheEverything: false
@@ -137,19 +137,12 @@ async function handleRequest(request) {
       headers.set('X-Forwarded-For', newRandomIP);
       headers.set('X-Real-IP', newRandomIP);
       
-      // 更新请求对象，使用预先保存的请求体副本
+      // 更新请求对象
       if (method !== 'GET' && method !== 'HEAD') {
-        // 使用对应重试次数的流副本
-        const currentRetryStream = requestBodyClones[retryCount + 1];
-        if (!currentRetryStream) {
-          console.error('无法继续重试：没有可用的请求体副本');
-          break;
-        }
-        
         apiRequest = new Request(apiUrl, {
           method: method,
           headers: headers,
-          body: currentRetryStream,
+          body: request.body,
           cf: {
             resolveOverride: 'api.x.ai',
             cacheEverything: false

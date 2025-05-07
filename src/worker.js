@@ -70,7 +70,7 @@ async function handleRequest(request) {
   const apiUrl = `https://api.x.ai${path}`;
 
   // 创建新的请求对象
-  const apiRequest = new Request(apiUrl, {
+  let apiRequest = new Request(apiUrl, {
     method: method,
     headers: headers,
     body: method !== 'GET' && method !== 'HEAD' ? await request.blob() : null,

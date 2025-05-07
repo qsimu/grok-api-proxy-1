@@ -15,7 +15,7 @@ function getRandomIP() {
   // 避开保留IP范围
   const segments = [];
   // 第一段避开保留IP范围
-  const firstSegment = [1, 2, 3, 5, 8, 9, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 26, 28, 29, 30, 33, 34, 35, 38, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 70, 71, 72, 73, 74, 75, 76, 77, 78, 79, 80, 81, 82, 83, 84, 85, 86, 87, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99, 101, 102, 103, 104, 105, 106, 107, 108, 109, 110, 111, 112, 113, 114, 115, 116, 117, 118, 119, 120, 121, 122, 123, 124, 125, 126, 129, 130, 131, 132, 133, 134, 135, 136, 137, 138, 139, 140, 141, 142, 143, 144, 145, 146, 147, 148, 149, 150, 151, 152, 153, 154, 155, 156, 157, 158, 159, 160, 161, 162, 163, 164, 165, 166, 167, 168, 169, 170, 171, 172, 173, 174, 175, 176, 177, 178, 179, 180, 181, 182, 183, 184, 185, 186, 187, 188, 189, 190, 191, 192, 193, 194, 195, 196, 197, 198, 199, 200, 201, 202, 203, 204, 205, 206, 207, 208, 209, 210, 211, 212, 213, 214, 215, 216, 217, 218, 219, 220, 221, 222, 223];
+  const firstSegment = [1, 2, 3, 5, 8, 9, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 26, 28, 29, 30, 33, 34, 35, 38, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 70, 71, 72, 73, 74, 75, 76, 77, 78, 79, 80, 81, 82, 83, 84, 85, 86, 87, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99, 101, 102, 103, 104, 105, 106, 107, 108, 109, 110, 111, 112, 113, 114, 115, 116, 117, 118, 119, 120, 121, 122, 123, 124, 125, 126, 129, 130, 131, 132, 133, 134, 135, 136, 137, 138, 139, 140, 141, 142, 143, 144, 145, 146, 147, 148, 149, 150, 151, 152, 153, 154, 155, 156, 157, 158, 159, 160, 161, 162, 163, 164, 165, 166, 167, 168, 169, 170, 171, 172, 173, 174, 175, 176, 177, 178, 179, 180, 181, 182, 183, 184, 185, 186, 187, 188, 189, 190, 191, 192, 193, 194, 195, 196, 197, 198, 199, 200, 201, 202, 203, 204, 205, 206, 207, 208, 209, 210, 211, 212, 213, 214, 215, 216, 217, 218, 219, 220, 221, 222, 223];
   segments.push(firstSegment[Math.floor(Math.random() * firstSegment.length)]);
   
   // 其他三段可以是0-255的任意值
@@ -86,17 +86,22 @@ async function handleRequest(request) {
   let retryCount = 0;
   const maxRetries = 3;
   
-  // 保存原始请求体，以便在重试时使用
-  let requestBodyClone = null;
-  if (method !== 'GET' && method !== 'HEAD') {
-    // 使用 tee() 创建两个可读流，一个用于初始请求，一个用于可能的重试
-    const [bodyStream1, bodyStream2] = request.body.tee();
-    requestBodyClone = bodyStream2;
+  // 在开始处理之前克隆请求体
+  let requestBodyClones = [];
+  if (method !== 'GET' && method !== 'HEAD' && request.body) {
+    // 为每次可能的重试创建一个流副本
+    let currentStream = request.body;
+    for (let i = 0; i <= maxRetries; i++) {
+      const [stream1, stream2] = currentStream.tee();
+      requestBodyClones.push(stream1);
+      currentStream = stream2;
+    }
+    
     // 使用第一个流创建初始请求
     apiRequest = new Request(apiUrl, {
       method: method,
       headers: headers,
-      body: bodyStream1,
+      body: requestBodyClones[0],
       cf: {
         resolveOverride: 'api.x.ai',
         cacheEverything: false
@@ -132,22 +137,19 @@ async function handleRequest(request) {
       headers.set('X-Forwarded-For', newRandomIP);
       headers.set('X-Real-IP', newRandomIP);
       
-      // 更新请求对象，使用保存的请求体副本
+      // 更新请求对象，使用预先保存的请求体副本
       if (method !== 'GET' && method !== 'HEAD') {
-        // 如果已经用完了所有的请求体副本，则无法继续重试
-        if (!requestBodyClone) {
-          console.error('无法继续重试：请求体已被完全消耗');
+        // 使用对应重试次数的流副本
+        const currentRetryStream = requestBodyClones[retryCount + 1];
+        if (!currentRetryStream) {
+          console.error('无法继续重试：没有可用的请求体副本');
           break;
         }
-        
-        // 为下一次重试准备新的请求体副本
-        const [bodyStream1, bodyStream2] = requestBodyClone.tee();
-        requestBodyClone = bodyStream2; // 保存一个副本用于可能的下一次重试
         
         apiRequest = new Request(apiUrl, {
           method: method,
           headers: headers,
-          body: bodyStream1,
+          body: currentRetryStream,
           cf: {
             resolveOverride: 'api.x.ai',
             cacheEverything: false

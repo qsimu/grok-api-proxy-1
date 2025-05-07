@@ -52,7 +52,7 @@ async function handleRequest(request) {
 
   const response = new Response(apiResponse.body, apiResponse);
   // 复制流式传输相关的响应头
-  const streamHeaders = ['transfer-encoding', 'content-encoding', 'content-length'];
+  const streamHeaders = ['transfer-encoding', 'content-encoding', 'content-length', 'content-type'];
   streamHeaders.forEach(header => {
     const value = apiResponse.headers.get(header);
     if (value) response.headers.set(header, value);
